@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import { DomainError } from './DomainError';
 import HTTP_STATUS from './httpStatus';
 import { NotFoundError } from './NotFoundError';
+import { UnauthorizedError } from './UnauthorizedError';
 
 export const notFoundHandler = (req: Request, res: Response): void => {
   res.status(HTTP_STATUS.NOT_FOUND).json({ error: 'Ruta no encontrada' });
@@ -16,6 +17,11 @@ export const errorHandler = (
 ): void => {
   if (err instanceof NotFoundError) {
     res.status(HTTP_STATUS.NOT_FOUND).json({ error: err.message });
+    return;
+  }
+
+  if (err instanceof UnauthorizedError) {
+    res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: err.message });
     return;
   }
 
