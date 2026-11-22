@@ -1,6 +1,6 @@
-import { randomBytes, scryptSync } from 'node:crypto';
 import { PrismaClient } from '../../../../generated/prisma/client';
 import { DomainError } from '../../../../shared/DomainError';
+import { hashPassword } from '../../../../shared/password';
 import { NewUser, User } from '../../domain/User';
 import { UserRepository } from '../../ports/UserRepository';
 
@@ -27,12 +27,6 @@ const toUser = (record: UserRecord): User => ({
   createdAt: record.createdAt,
   updatedAt: record.updatedAt,
 });
-
-const hashPassword = (password: string): string => {
-  const salt = randomBytes(16).toString('hex');
-  const hash = scryptSync(password, salt, 32).toString('hex');
-  return `${salt}:${hash}`;
-};
 
 const hasErrorCode = (error: unknown, code: string): boolean =>
   typeof error === 'object' && error !== null && (error as { code?: string }).code === code;

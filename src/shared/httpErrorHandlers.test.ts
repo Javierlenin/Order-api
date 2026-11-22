@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { DomainError } from './DomainError';
 import { errorHandler } from './httpErrorHandlers';
 import { NotFoundError } from './NotFoundError';
+import { UnauthorizedError } from './UnauthorizedError';
 
 const invoke = (err: Error & { status?: number }) => {
   const res = {
@@ -33,6 +34,13 @@ describe('errorHandler', () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.body).toEqual({ error: 'El total debe ser mayor que 0' });
+  });
+
+  it('maps UnauthorizedError to 401 with its message', () => {
+    const res = invoke(new UnauthorizedError('No autorizado'));
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({ error: 'No autorizado' });
   });
 
   it('hides unexpected errors behind a generic 500', () => {
