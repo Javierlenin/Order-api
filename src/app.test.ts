@@ -19,6 +19,15 @@ describe('unknown routes', () => {
   });
 });
 
+describe('authentication', () => {
+  it('rejects a protected route when the request has no token', async () => {
+    const response = await request(app).get('/users');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe('No autorizado');
+  });
+});
+
 describe('CORS', () => {
   const allowedOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
 

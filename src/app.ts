@@ -10,6 +10,10 @@ import { createRoleRouter } from './modules/roles/adapter/http/RoleRoutes';
 import { PrismaUserRepository } from './modules/users/adapter/persistence/PrismaUserRepository';
 import { UserService } from './modules/users/application/UserService';
 import { createUserRouter } from './modules/users/adapter/http/UserRoutes';
+import { PrismaAuthRepository } from './modules/auth/adapter/persistence/PrismaAuthRepository';
+import { AuthService } from './modules/auth/application/AuthService';
+import { createAuthRouter } from './modules/auth/adapter/http/AuthRoutes';
+import { requireAuth } from './modules/auth/adapter/http/requireAuth';
 
 const app = express();
 
@@ -22,16 +26,24 @@ if (!databaseUrl) {
   throw new Error('DATABASE_URL es obligatoria. Este API solo persiste en PostgreSQL con Prisma.');
 }
 
+const jwtSecret = process.env.JWT_SECRET;
+
+if (!jwtSecret) {
+  throw new Error('JWT_SECRET es obligatoria.');
+}
+
 const prisma = createPrismaClient(databaseUrl);
 const roleService = new RoleService(new PrismaRoleRepository(prisma));
 const userService = new UserService(new PrismaUserRepository(prisma));
+const authService = new AuthService(new PrismaAuthRepository(prisma), jwtSecret);
 
 app.get('/health', (_req, res) => {
   res.status(HTTP_STATUS.OK).json({ status: 'ok' });
 });
 
-app.use('/roles', createRoleRouter(roleService));
-app.use('/users', createUserRouter(userService));
+app.use('/auth', createAuthRouter(authService));
+app.use('/roles', requireAuth(authService), createRoleRouter(roleService));
+app.use('/users', requireAuth(authService), createUserRouter(userService));
 
 app.use(notFoundHandler);
 app.use(errorHandler);
