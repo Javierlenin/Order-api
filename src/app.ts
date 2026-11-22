@@ -14,6 +14,9 @@ import { PrismaAuthRepository } from './modules/auth/adapter/persistence/PrismaA
 import { AuthService } from './modules/auth/application/AuthService';
 import { createAuthRouter } from './modules/auth/adapter/http/AuthRoutes';
 import { requireAuth } from './modules/auth/adapter/http/requireAuth';
+import { PrismaReportRepository } from './modules/reports/adapter/persistence/PrismaReportRepository';
+import { ReportService } from './modules/reports/application/ReportService';
+import { createReportRouter } from './modules/reports/adapter/http/ReportRoutes';
 
 const app = express();
 
@@ -36,6 +39,7 @@ const prisma = createPrismaClient(databaseUrl);
 const roleService = new RoleService(new PrismaRoleRepository(prisma));
 const userService = new UserService(new PrismaUserRepository(prisma));
 const authService = new AuthService(new PrismaAuthRepository(prisma), jwtSecret);
+const reportService = new ReportService(new PrismaReportRepository(prisma));
 
 app.get('/health', (_req, res) => {
   res.status(HTTP_STATUS.OK).json({ status: 'ok' });
@@ -44,6 +48,7 @@ app.get('/health', (_req, res) => {
 app.use('/auth', createAuthRouter(authService));
 app.use('/roles', requireAuth(authService), createRoleRouter(roleService));
 app.use('/users', requireAuth(authService), createUserRouter(userService));
+app.use('/reports', requireAuth(authService), createReportRouter(reportService));
 
 app.use(notFoundHandler);
 app.use(errorHandler);
