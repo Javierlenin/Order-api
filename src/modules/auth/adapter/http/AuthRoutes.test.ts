@@ -2,7 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { errorHandler } from '../../../../shared/httpErrorHandlers';
 import { hashPassword } from '../../../../shared/password';
-import { AuthAccount, AuthRepository } from '../../ports/AuthRepository';
+import { AuthAccount, AuthRepository, NewAuthAccount } from '../../ports/AuthRepository';
 import { AuthService } from '../../application/AuthService';
 import { createAuthRouter } from './AuthRoutes';
 import { requireAuth } from './requireAuth';
@@ -22,8 +22,27 @@ const account: AuthAccount = {
 };
 
 class FakeAuthRepository implements AuthRepository {
+  private readonly accounts = [account];
+
   findByEmail = async (email: string): Promise<AuthAccount | undefined> =>
-    account.email === email ? account : undefined;
+    this.accounts.find((current) => current.email === email);
+
+  save = async (input: NewAuthAccount): Promise<AuthAccount> => {
+    const created: AuthAccount = {
+      id: this.accounts.length + 1,
+      roleId: 1,
+      roleName: 'Usuario',
+      name: input.name,
+      email: input.email,
+      passwordHash: hashPassword(input.password),
+      status: true,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
+    };
+
+    this.accounts.push(created);
+    return created;
+  };
 }
 
 const service = new AuthService(new FakeAuthRepository(), 'secreto-de-prueba', '1h');
@@ -59,6 +78,18 @@ describe('POST /auth/login', () => {
     expect(missing.body.error).toBe('El correo y la contraseña son obligatorios');
     expect(invalid.status).toBe(401);
     expect(invalid.body.error).toBe('El correo o la contraseña no son válidos');
+  });
+
+  it('returns 201 with a token when registering a new user and 400 when the email exists', async () => {
+    const created = await request(app).post('/auth/register').send({ email: ' nuevo@example.com ', password });
+    const duplicated = await request(app).post('/auth/register').send({ email: account.email, password });
+
+    expect(created.status).toBe(201);
+    expect(typeof created.body.token).toBe('string');
+    expect(created.body.user.email).toBe('nuevo@example.com');
+    expect(created.body.user).not.toHaveProperty('passwordHash');
+    expect(duplicated.status).toBe(400);
+    expect(duplicated.body.error).toBe('El correo ya está registrado');
   });
 
   it('returns 401 when the protected route has no token', async () => {

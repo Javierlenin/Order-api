@@ -1,5 +1,5 @@
 import { DomainError } from '../../../shared/DomainError';
-import { parseLoginCredentials } from './Credentials';
+import { displayNameFromEmail, parseLoginCredentials } from './Credentials';
 
 describe('parseLoginCredentials', () => {
   it('returns the trimmed email and the password', () => {
@@ -16,5 +16,12 @@ describe('parseLoginCredentials', () => {
 
   it('throws when the email has no @', () => {
     expect(() => parseLoginCredentials({ email: 'ana.example.com', password: 'secreto' })).toThrow('El correo no es válido');
+  });
+});
+
+describe('displayNameFromEmail', () => {
+  it('uses the local part and falls back when it is empty', () => {
+    expect(displayNameFromEmail('ana@example.com')).toBe('ana');
+    expect(displayNameFromEmail('@example.com')).toBe('Usuario');
   });
 });

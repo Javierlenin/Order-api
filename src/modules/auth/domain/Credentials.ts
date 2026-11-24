@@ -26,3 +26,8 @@ export const parseLoginCredentials = (input: unknown): LoginCredentials => {
 
   return { email: email.trim(), password };
 };
+
+export const displayNameFromEmail = (email: string): string => {
+  const localPart = email.split('@')[0]?.trim() ?? '';
+  return localPart.slice(0, 150) || 'Usuario';
+};
