@@ -10,6 +10,13 @@ export interface AuthAccount {
   updatedAt: Date;
 }
 
+export interface NewAuthAccount {
+  name: string;
+  email: string;
+  password: string;
+}
+
 export interface AuthRepository {
   findByEmail: (email: string) => Promise<AuthAccount | undefined>;
+  save: (account: NewAuthAccount) => Promise<AuthAccount>;
 }
