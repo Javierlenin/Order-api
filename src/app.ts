@@ -17,6 +17,9 @@ import { requireAuth } from './modules/auth/adapter/http/requireAuth';
 import { PrismaReportRepository } from './modules/reports/adapter/persistence/PrismaReportRepository';
 import { ReportService } from './modules/reports/application/ReportService';
 import { createReportRouter } from './modules/reports/adapter/http/ReportRoutes';
+import { PrismaInventoryAdjustmentRepository } from './modules/inventory-adjustments/adapter/persistence/PrismaInventoryAdjustmentRepository';
+import { InventoryAdjustmentService } from './modules/inventory-adjustments/application/InventoryAdjustmentService';
+import { createInventoryAdjustmentRouter } from './modules/inventory-adjustments/adapter/http/InventoryAdjustmentRoutes';
 
 const app = express();
 
@@ -40,6 +43,7 @@ const roleService = new RoleService(new PrismaRoleRepository(prisma));
 const userService = new UserService(new PrismaUserRepository(prisma));
 const authService = new AuthService(new PrismaAuthRepository(prisma), jwtSecret);
 const reportService = new ReportService(new PrismaReportRepository(prisma));
+const inventoryAdjustmentService = new InventoryAdjustmentService(new PrismaInventoryAdjustmentRepository(prisma));
 
 app.get('/health', (_req, res) => {
   res.status(HTTP_STATUS.OK).json({ status: 'ok' });
@@ -49,6 +53,7 @@ app.use('/auth', createAuthRouter(authService));
 app.use('/roles', requireAuth(authService), createRoleRouter(roleService));
 app.use('/users', requireAuth(authService), createUserRouter(userService));
 app.use('/reports', requireAuth(authService), createReportRouter(reportService));
+app.use('/inventory-adjustments', requireAuth(authService), createInventoryAdjustmentRouter(inventoryAdjustmentService));
 
 app.use(notFoundHandler);
 app.use(errorHandler);

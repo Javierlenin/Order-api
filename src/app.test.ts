@@ -33,6 +33,13 @@ describe('authentication', () => {
     expect(response.status).toBe(401);
     expect(response.body.error).toBe('No autorizado');
   });
+
+  it('rejects an inventory adjustment when the request has no token', async () => {
+    const response = await request(app).post('/inventory-adjustments').send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe('No autorizado');
+  });
 });
 
 describe('CORS', () => {
