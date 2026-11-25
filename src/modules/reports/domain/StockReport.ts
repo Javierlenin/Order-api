@@ -31,10 +31,10 @@ export interface AdjustmentLine {
 
 export interface MovementLine {
   id: number;
-  adjustmentId: number;
+  adjustmentId: number | null;
   productId: number;
   occurredAt: Date;
-  type: 'SALIDA' | 'DEVOLUCION';
+  type: StockMovementType;
   quantity: number;
   stockBefore: number;
   stockAfter: number;
@@ -148,7 +148,11 @@ const compareEvents = (left: StockEvent, right: StockEvent): number =>
   left.occurredAt.getTime() - right.occurredAt.getTime() || left.id - right.id;
 
 export const buildStockHistory = (adjustments: AdjustmentLine[], movements: MovementLine[]): StockEvent[] => {
-  const covered = new Set(movements.map((movement) => `${movement.adjustmentId}:${movement.productId}`));
+  const covered = new Set(
+    movements
+      .filter((movement) => movement.adjustmentId !== null)
+      .map((movement) => `${movement.adjustmentId}:${movement.productId}`),
+  );
   const adjustmentEvents: StockEvent[] = adjustments
     .filter((line) => !covered.has(`${line.adjustmentId}:${line.productId}`))
     .map((line) => ({ ...line, origin: 'ADJUSTMENT' }));
