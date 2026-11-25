@@ -6,6 +6,7 @@ import {
   NewInventoryAdjustment,
 } from '../../domain/InventoryAdjustment';
 import { InventoryAdjustmentRepository } from '../../ports/InventoryAdjustmentRepository';
+import { saveAdjustmentMovements } from '../../../inventory-movements/adapter/persistence/PrismaInventoryMovementRepository';
 
 type AdjustmentRecord = {
   id: number;
@@ -122,6 +123,19 @@ export class PrismaInventoryAdjustmentRepository implements InventoryAdjustmentR
             data: { stock: line.stockAfter, updatedAt: new Date() },
           });
         }
+
+        await saveAdjustmentMovements(tx, {
+          adjustmentId: record.id,
+          userId: adjustment.userId,
+          adjustmentType: adjustment.adjustmentType,
+          reason: adjustment.reason,
+          lines: lines.map((line) => ({
+            productId: line.productId,
+            quantity: line.quantity,
+            stockBefore: line.stockBefore,
+            stockAfter: line.stockAfter,
+          })),
+        });
 
         return toAdjustment(record);
       });
