@@ -33,6 +33,20 @@ describe('authentication', () => {
     expect(response.status).toBe(401);
     expect(response.body.error).toBe('No autorizado');
   });
+
+  it('rejects the inventory movement history when the request has no token', async () => {
+    const response = await request(app).get('/inventory-movements');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe('No autorizado');
+  });
+
+  it('rejects inventory adjustments when the request has no token', async () => {
+    const response = await request(app).get('/inventory-adjustments');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe('No autorizado');
+  });
 });
 
 describe('CORS', () => {
