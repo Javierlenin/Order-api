@@ -1,15 +1,8 @@
 import { Prisma, PrismaClient } from '../../../../generated/prisma/client';
 import { DomainError } from '../../../../shared/DomainError';
-import {
-  AdjustmentMovementSource,
-  InventoryMovement,
-  MovementQuery,
-  movementsFromAdjustment,
-  movementsFromOrderCancellation,
-  movementsFromOrderConfirmation,
-  NewInventoryMovement,
-  OrderMovementSource,
-} from '../../domain/InventoryMovement';
+
+import { InventoryMovement, MovementQuery, NewInventoryMovement } from '../../domain/InventoryMovement';
+
 import { InventoryMovementRepository } from '../../ports/InventoryMovementRepository';
 
 type MovementRecord = {
@@ -56,6 +49,7 @@ const hasErrorCode = (error: unknown, code: string): boolean =>
 const REFERENCE_NOT_FOUND_MESSAGE = 'El usuario, el producto, el pedido o el ajuste indicado no existe';
 const ORDER_EXIT_ALREADY_RECORDED = 'La salida de este pedido ya fue registrada';
 const ADJUSTMENT_ALREADY_RECORDED = 'Los movimientos de este ajuste ya fueron registrados';
+
 
 export const insertInventoryMovements = async (
   tx: Prisma.TransactionClient,
@@ -166,7 +160,9 @@ export class PrismaInventoryMovementRepository implements InventoryMovementRepos
         movementType: query.type,
         createdAt: createdAtFilter(query),
       },
+
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+
       include: movementInclude,
     });
 

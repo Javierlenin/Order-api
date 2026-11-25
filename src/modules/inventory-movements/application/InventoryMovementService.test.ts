@@ -1,11 +1,14 @@
 import { DomainError } from '../../../shared/DomainError';
+
 import { parseMovementQuery } from '../domain/InventoryMovement';
 import { InventoryMovement, NewInventoryMovement } from '../domain/InventoryMovement';
+
 import { InventoryMovementRepository } from '../ports/InventoryMovementRepository';
 import { InventoryMovementService } from './InventoryMovementService';
 
 class FakeInventoryMovementRepository implements InventoryMovementRepository {
   movements: InventoryMovement[] = [];
+
 
   saveMany = async (movements: NewInventoryMovement[]): Promise<InventoryMovement[]> => {
     const created = movements.map((movement, index) => ({
@@ -16,11 +19,14 @@ class FakeInventoryMovementRepository implements InventoryMovementRepository {
       userName: 'Ana Ruiz',
       createdAt: new Date('2026-03-01T15:30:00.000Z'),
     }));
+
     this.movements.push(...created);
     return created;
   };
 
   find = async (): Promise<InventoryMovement[]> => [...this.movements];
+
+
 
   findByOrder = async (orderId: number): Promise<InventoryMovement[]> =>
     this.movements.filter((movement) => movement.orderId === orderId);
@@ -28,6 +34,7 @@ class FakeInventoryMovementRepository implements InventoryMovementRepository {
   findByAdjustment = async (adjustmentId: number): Promise<InventoryMovement[]> =>
     this.movements.filter((movement) => movement.adjustmentId === adjustmentId);
 }
+
 
 describe('InventoryMovementService', () => {
   const line = { productId: 1, quantity: 2, stockBefore: 5, stockAfter: 3 };
@@ -68,6 +75,7 @@ describe('InventoryMovementService', () => {
       reason: 'Merma',
       lines: [line],
     });
+
 
     await expect(
       service.recordAdjustment({
@@ -110,5 +118,6 @@ describe('InventoryMovementService', () => {
 
     expect(returned).toEqual([]);
     expect(repository.movements).toEqual([]);
+
   });
 });

@@ -30,6 +30,13 @@ import { PrismaInventoryAdjustmentRepository } from './modules/inventory-adjustm
 import { InventoryAdjustmentService } from './modules/inventory-adjustments/application/InventoryAdjustmentService';
 import { createInventoryAdjustmentRouter } from './modules/inventory-adjustments/adapter/http/InventoryAdjustmentRoutes';
 
+import { PrismaInventoryMovementRepository } from './modules/inventory-movements/adapter/persistence/PrismaInventoryMovementRepository';
+import { InventoryMovementService } from './modules/inventory-movements/application/InventoryMovementService';
+import { createInventoryMovementRouter } from './modules/inventory-movements/adapter/http/InventoryMovementRoutes';
+import { PrismaProductRepository } from './modules/products/adapter/persistence/PrismaProductRepository';
+import { ProductService } from './modules/products/application/ProductService';
+import { createProductRouter } from './modules/products/adapter/http/ProductRoutes';
+
 const app = express();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173' }));
@@ -57,6 +64,8 @@ const productService = new ProductService(new PrismaProductRepository(prisma));
 const inventoryMovementService = new InventoryMovementService(new PrismaInventoryMovementRepository(prisma));
 const inventoryAdjustmentService = new InventoryAdjustmentService(new PrismaInventoryAdjustmentRepository(prisma));
 
+const inventoryMovementService = new InventoryMovementService(new PrismaInventoryMovementRepository(prisma));
+const productService = new ProductService(new PrismaProductRepository(prisma));
 app.get('/health', (_req, res) => {
   res.status(HTTP_STATUS.OK).json({ status: 'ok' });
 });
@@ -68,6 +77,11 @@ app.use('/reports', requireAuth(authService), createReportRouter(reportService))
 app.use('/orders', requireAuth(authService), createOrderRouter(orderService));
 app.use('/products', requireAuth(authService), createProductRouter(productService));
 app.use('/inventory-movements', requireAuth(authService), createInventoryMovementRouter(inventoryMovementService));
+app.use('/inventory-adjustments', requireAuth(authService), createInventoryAdjustmentRouter(inventoryAdjustmentService));
+
+app.use('/inventory-movements', requireAuth(authService), createInventoryMovementRouter(inventoryMovementService));
+app.use('/products', requireAuth(authService), createProductRouter(productService));
+
 app.use('/inventory-adjustments', requireAuth(authService), createInventoryAdjustmentRouter(inventoryAdjustmentService));
 
 app.use(notFoundHandler);

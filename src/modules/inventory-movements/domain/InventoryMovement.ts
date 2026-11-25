@@ -220,6 +220,7 @@ export const movementsFromOrderCancellation = (
 
   return parseLines(source.lines).flatMap((line) => {
     const exit = recorded.find((movement) => movement.productId === line.productId && movement.movementType === 'SALIDA');
+
     const alreadyReturned = recorded.some(
       (movement) => movement.productId === line.productId && movement.movementType === 'DEVOLUCION',
     );
@@ -262,11 +263,13 @@ const parseDay = (value: string, bound: 'inicial' | 'final'): Date => {
   const date = new Date(year, month - 1, day);
 
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+
     throw new DomainError(`La fecha ${bound} no es válida`);
   }
 
   if (bound === 'final') {
     date.setHours(23, 59, 59, 999);
+
   }
 
   return date;
