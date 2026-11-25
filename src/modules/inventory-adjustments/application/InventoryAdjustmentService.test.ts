@@ -9,6 +9,7 @@ class FakeInventoryAdjustmentRepository implements InventoryAdjustmentRepository
   adjustments: InventoryAdjustment[] = [];
   saved: NewInventoryAdjustment[] = [];
 
+
 import { calculateStockChanges, InventoryAdjustment, NewInventoryAdjustment } from '../domain/InventoryAdjustment';
 import { InventoryAdjustmentRepository } from '../ports/InventoryAdjustmentRepository';
 import { InventoryAdjustmentService } from './InventoryAdjustmentService';
@@ -24,7 +25,6 @@ class FakeInventoryAdjustmentRepository implements InventoryAdjustmentRepository
   private users = new Map<number, string>([[7, 'Ana Ruiz']]);
   private nextAdjustmentId = 1;
   private nextDetailId = 1;
-
 
   findAll = async (): Promise<InventoryAdjustment[]> => [...this.adjustments];
 
@@ -51,6 +51,7 @@ class FakeInventoryAdjustmentRepository implements InventoryAdjustmentRepository
         stockAfter: adjustment.adjustmentType === 'SALIDA' ? 10 - detail.quantity : 10 + detail.quantity,
       })),
     };
+
 
     const userName = this.users.get(adjustment.userId);
 
@@ -112,6 +113,7 @@ const validInput = {
 };
 
 
+
 const createService = (): { service: InventoryAdjustmentService; repository: FakeInventoryAdjustmentRepository } => {
   const repository = new FakeInventoryAdjustmentRepository();
   return { service: new InventoryAdjustmentService(repository), repository };
@@ -143,6 +145,7 @@ describe('InventoryAdjustmentService', () => {
       },
     ]);
 
+
   it('registers the header, the product lines, the responsible user, and the date', async () => {
     const { service, repository } = createService();
     const created = await service.create(validInput);
@@ -173,6 +176,7 @@ describe('InventoryAdjustmentService', () => {
     const { service } = createService();
 
     await expect(service.getById(4)).rejects.toThrow(NotFoundError);
+
 
       details: [
         { productId: 1, codeProduct: 'PROD-001', quantity: 5, stockBefore: 10, stockAfter: 15 },
@@ -252,6 +256,7 @@ describe('InventoryAdjustmentService', () => {
     expect(repository.products.get(1)?.stock).toBe(10);
     expect(await service.list()).toEqual([]);
     await expect(service.getById(99)).rejects.toThrow(NotFoundError);
+
 
   });
 });

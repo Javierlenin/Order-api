@@ -52,6 +52,7 @@ model User {
 
   role                 Role                  @relation(fields: [roleId], references: [id])
   orders               Order[]
+  orderStatusHistory   OrderStatusHistory[]
   inventoryAdjustments InventoryAdjustment[]
   inventoryMovements   InventoryMovement[]
 
@@ -121,9 +122,10 @@ model Order {
   createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamp(0)
   updatedAt   DateTime    @default(now()) @map("updated_at") @db.Timestamp(0)
 
-  customer           Customer            @relation(fields: [customerId], references: [id])
-  user               User                @relation(fields: [userId], references: [id])
+  customer           Customer             @relation(fields: [customerId], references: [id])
+  user               User                 @relation(fields: [userId], references: [id])
   details            OrderDetail[]
+  statusHistory      OrderStatusHistory[]
   inventoryMovements InventoryMovement[]
 
   @@index([customerId, orderDate(sort: Desc)], map: "IX_orders_customer_date")
@@ -145,6 +147,21 @@ model OrderDetail {
 
   @@index([orderId], map: "IX_order_details_order")
   @@map("order_details")
+}
+
+model OrderStatusHistory {
+  id         Int          @id @default(autoincrement())
+  orderId    Int          @map("order_id")
+  userId     Int          @map("user_id")
+  fromStatus OrderStatus? @map("from_status")
+  toStatus   OrderStatus  @map("to_status")
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamp(0)
+
+  order Order @relation(fields: [orderId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@index([orderId, createdAt(sort: Desc)], map: "IX_order_status_history_order")
+  @@map("order_status_history")
 }
 
 model InventoryAdjustment {

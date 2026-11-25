@@ -1,6 +1,8 @@
 import { Prisma, PrismaClient } from '../../../../generated/prisma/client';
 import { DomainError } from '../../../../shared/DomainError';
+
 import { InventoryMovement, MovementQuery, NewInventoryMovement } from '../../domain/InventoryMovement';
+
 import { InventoryMovementRepository } from '../../ports/InventoryMovementRepository';
 
 type MovementRecord = {
@@ -45,6 +47,9 @@ const hasErrorCode = (error: unknown, code: string): boolean =>
   typeof error === 'object' && error !== null && (error as { code?: string }).code === code;
 
 const REFERENCE_NOT_FOUND_MESSAGE = 'El usuario, el producto, el pedido o el ajuste indicado no existe';
+const ORDER_EXIT_ALREADY_RECORDED = 'La salida de este pedido ya fue registrada';
+const ADJUSTMENT_ALREADY_RECORDED = 'Los movimientos de este ajuste ya fueron registrados';
+
 
 export const insertInventoryMovements = async (
   tx: Prisma.TransactionClient,
@@ -58,6 +63,53 @@ export const insertInventoryMovements = async (
   }
 
   return created;
+};
+
+export const saveOrderMovements = async (
+  tx: Prisma.TransactionClient,
+  direction: 'SALIDA' | 'DEVOLUCION',
+  source: OrderMovementSource,
+): Promise<NewInventoryMovement[]> => {
+  const recorded = await tx.inventoryMovement.findMany({
+    where: { orderId: source.orderId },
+    select: { productId: true, movementType: true, quantity: true },
+  });
+
+  if (direction === 'SALIDA') {
+    const movements = movementsFromOrderConfirmation(source);
+    const alreadyRecorded = movements.some((movement) =>
+      recorded.some((current) => current.productId === movement.productId && current.movementType === 'SALIDA'),
+    );
+
+    if (alreadyRecorded) {
+      throw new DomainError(ORDER_EXIT_ALREADY_RECORDED);
+    }
+
+    await insertInventoryMovements(tx, movements);
+    return movements;
+  }
+
+  const movements = movementsFromOrderCancellation(source, recorded);
+  await insertInventoryMovements(tx, movements);
+  return movements;
+};
+
+export const saveAdjustmentMovements = async (
+  tx: Prisma.TransactionClient,
+  source: AdjustmentMovementSource,
+): Promise<NewInventoryMovement[]> => {
+  const existing = await tx.inventoryMovement.findMany({
+    where: { adjustmentId: source.adjustmentId },
+    select: { id: true },
+  });
+
+  if (existing.length > 0) {
+    throw new DomainError(ADJUSTMENT_ALREADY_RECORDED);
+  }
+
+  const movements = movementsFromAdjustment(source);
+  await insertInventoryMovements(tx, movements);
+  return movements;
 };
 
 const createdAtFilter = (query: MovementQuery): { gte?: Date; lte?: Date } | undefined => {
@@ -108,7 +160,9 @@ export class PrismaInventoryMovementRepository implements InventoryMovementRepos
         movementType: query.type,
         createdAt: createdAtFilter(query),
       },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+
       include: movementInclude,
     });
 

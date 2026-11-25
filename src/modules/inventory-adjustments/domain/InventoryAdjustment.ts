@@ -7,6 +7,8 @@ export type AdjustmentType = (typeof ADJUSTMENT_TYPES)[number];
 const REASON_MAX_LENGTH = 500;
 const MAX_STOCK = 2_147_483_647;
 
+export interface AdjustmentDetail {
+
 
 export interface AdjustmentDetail {
 
@@ -33,7 +35,7 @@ export interface InventoryAdjustment {
 }
 
 export interface NewAdjustmentDetail {
-=======
+
   details: InventoryAdjustmentDetail[];
 }
 
@@ -61,11 +63,13 @@ export interface PreparedAdjustmentDetail {
   productId: number;
   codeProduct: string;
   productName: string;
+
   details: NewInventoryAdjustmentDetail[];
 }
 
 export interface StockChange {
   productId: number;
+
 
   quantity: number;
   stockBefore: number;
@@ -102,6 +106,7 @@ const parseDetails = (details: unknown): NewAdjustmentDetail[] => {
     return { productId, quantity };
   });
 
+
 const parseDetail = (input: unknown): NewInventoryAdjustmentDetail => {
   const { productId, quantity } = (input ?? {}) as Record<string, unknown>;
 
@@ -114,6 +119,7 @@ const parseDetail = (input: unknown): NewInventoryAdjustmentDetail => {
   }
 
   return { productId, quantity };
+
 };
 
 export const parseNewInventoryAdjustment = (input: unknown): NewInventoryAdjustment => {
@@ -139,6 +145,7 @@ export const parseNewInventoryAdjustment = (input: unknown): NewInventoryAdjustm
 
   if (trimmedReason.length > REASON_MAX_LENGTH) {
     throw new DomainError('El motivo del ajuste no puede superar 500 caracteres');
+
 
   if (!ADJUSTMENT_TYPES.includes(adjustmentType as AdjustmentType)) {
     throw new DomainError('El tipo de ajuste debe ser INGRESO o SALIDA');
@@ -167,6 +174,7 @@ export const parseNewInventoryAdjustment = (input: unknown): NewInventoryAdjustm
     }
 
     productIds.add(detail.productId);
+
   }
 
   return {
@@ -196,6 +204,7 @@ export const buildAdjustmentLines = (
     if (stockAfter < 0) {
       throw new DomainError('El ajuste dejaría el stock en negativo');
 
+
     reason: normalizedReason,
     details: parsedDetails,
   };
@@ -217,6 +226,7 @@ export const calculateStockChanges = (
 
     if (stockAfter < 0) {
       throw new DomainError('El ajuste dejaría el stock del producto en negativo');
+
     }
 
     if (stockAfter > MAX_STOCK) {
@@ -233,9 +243,11 @@ export const calculateStockChanges = (
     };
   });
 };
+
       productId: detail.productId,
       quantity: detail.quantity,
       stockBefore,
       stockAfter,
     };
   });
+

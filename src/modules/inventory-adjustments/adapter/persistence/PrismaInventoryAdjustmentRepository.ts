@@ -2,13 +2,16 @@ import { Prisma, PrismaClient } from '../../../../generated/prisma/client';
 import { DomainError } from '../../../../shared/DomainError';
 import {
 
+
   buildAdjustmentLines,
-=======
   calculateStockChanges,
   InventoryAdjustment,
   NewInventoryAdjustment,
 } from '../../domain/InventoryAdjustment';
 import { InventoryAdjustmentRepository } from '../../ports/InventoryAdjustmentRepository';
+
+import { saveAdjustmentMovements } from '../../../inventory-movements/adapter/persistence/PrismaInventoryMovementRepository';
+
 
 type AdjustmentRecord = {
   id: number;
@@ -68,6 +71,7 @@ const lockProducts = async (tx: Prisma.TransactionClient, productIds: number[]):
     FOR UPDATE
   `);
 
+
 const USER_NOT_FOUND_MESSAGE = 'El usuario indicado no existe';
 const REFERENCE_NOT_FOUND_MESSAGE = 'El usuario o el producto indicado no existe';
 
@@ -113,6 +117,7 @@ const registerAdjustment = async (
   }
 
   return toAdjustment(record);
+
 
 };
 
@@ -176,10 +181,28 @@ export class PrismaInventoryAdjustmentRepository implements InventoryAdjustmentR
           });
         }
 
+
+        await saveAdjustmentMovements(tx, {
+          adjustmentId: record.id,
+          userId: adjustment.userId,
+          adjustmentType: adjustment.adjustmentType,
+          reason: adjustment.reason,
+          lines: lines.map((line) => ({
+            productId: line.productId,
+            quantity: line.quantity,
+            stockBefore: line.stockBefore,
+            stockAfter: line.stockAfter,
+          })),
+        });
+
+        return toAdjustment(record);
+      });
+
         return toAdjustment(record);
       });
 
       return await this.prisma.$transaction((tx) => registerAdjustment(tx, adjustment));
+
 
     } catch (error) {
       if (error instanceof DomainError) {
