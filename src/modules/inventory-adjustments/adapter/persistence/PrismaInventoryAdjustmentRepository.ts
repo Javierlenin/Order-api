@@ -1,0 +1,136 @@
+import { Prisma, PrismaClient } from '../../../../generated/prisma/client';
+import { DomainError } from '../../../../shared/DomainError';
+import {
+  calculateStockChanges,
+  InventoryAdjustment,
+  NewInventoryAdjustment,
+} from '../../domain/InventoryAdjustment';
+import { InventoryAdjustmentRepository } from '../../ports/InventoryAdjustmentRepository';
+
+type AdjustmentRecord = {
+  id: number;
+  userId: number;
+  adjustmentType: InventoryAdjustment['adjustmentType'];
+  reason: string | null;
+  createdAt: Date;
+  user: { name: string };
+  details: Array<{
+    id: number;
+    productId: number;
+    quantity: number;
+    stockBefore: number;
+    stockAfter: number;
+    product: { codeProduct: string; name: string };
+  }>;
+};
+
+const adjustmentInclude = {
+  user: { select: { name: true } },
+  details: {
+    orderBy: { id: 'asc' as const },
+    include: { product: { select: { codeProduct: true, name: true } } },
+  },
+};
+
+const toAdjustment = (record: AdjustmentRecord): InventoryAdjustment => ({
+  id: record.id,
+  userId: record.userId,
+  userName: record.user.name,
+  adjustmentType: record.adjustmentType,
+  reason: record.reason,
+  createdAt: record.createdAt,
+  details: record.details.map((detail) => ({
+    id: detail.id,
+    productId: detail.productId,
+    codeProduct: detail.product.codeProduct,
+    productName: detail.product.name,
+    quantity: detail.quantity,
+    stockBefore: detail.stockBefore,
+    stockAfter: detail.stockAfter,
+  })),
+});
+
+const hasErrorCode = (error: unknown, code: string): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: string }).code === code;
+
+const USER_NOT_FOUND_MESSAGE = 'El usuario indicado no existe';
+const REFERENCE_NOT_FOUND_MESSAGE = 'El usuario o el producto indicado no existe';
+
+const registerAdjustment = async (
+  tx: Prisma.TransactionClient,
+  adjustment: NewInventoryAdjustment,
+): Promise<InventoryAdjustment> => {
+  const user = await tx.user.findUnique({ where: { id: adjustment.userId }, select: { id: true } });
+
+  if (!user) {
+    throw new DomainError(USER_NOT_FOUND_MESSAGE);
+  }
+
+  const productIds = adjustment.details.map((detail) => detail.productId).sort((left, right) => left - right);
+  const locked = await tx.$queryRaw<Array<{ id: number; stock: number }>>(
+    Prisma.sql`SELECT id, stock FROM products WHERE id IN (${Prisma.join(productIds)}) ORDER BY id FOR UPDATE`,
+  );
+  const stocks = new Map(locked.map((product) => [Number(product.id), Number(product.stock)]));
+  const changes = calculateStockChanges(adjustment.adjustmentType, adjustment.details, stocks);
+  const updatedAt = new Date();
+  const record = await tx.inventoryAdjustment.create({
+    data: {
+      userId: adjustment.userId,
+      adjustmentType: adjustment.adjustmentType,
+      reason: adjustment.reason,
+      details: {
+        create: changes.map((change) => ({
+          productId: change.productId,
+          quantity: change.quantity,
+          stockBefore: change.stockBefore,
+          stockAfter: change.stockAfter,
+        })),
+      },
+    },
+    include: adjustmentInclude,
+  });
+
+  for (const change of changes) {
+    await tx.product.update({
+      where: { id: change.productId },
+      data: { stock: change.stockAfter, updatedAt },
+    });
+  }
+
+  return toAdjustment(record);
+};
+
+export class PrismaInventoryAdjustmentRepository implements InventoryAdjustmentRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  findAll = async (): Promise<InventoryAdjustment[]> => {
+    const records = await this.prisma.inventoryAdjustment.findMany({
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: adjustmentInclude,
+    });
+
+    return records.map(toAdjustment);
+  };
+
+  findById = async (id: number): Promise<InventoryAdjustment | undefined> => {
+    const record = await this.prisma.inventoryAdjustment.findUnique({ where: { id }, include: adjustmentInclude });
+
+    return record ? toAdjustment(record) : undefined;
+  };
+
+  save = async (adjustment: NewInventoryAdjustment): Promise<InventoryAdjustment> => {
+    try {
+      return await this.prisma.$transaction((tx) => registerAdjustment(tx, adjustment));
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+
+      if (hasErrorCode(error, 'P2003')) {
+        throw new DomainError(REFERENCE_NOT_FOUND_MESSAGE);
+      }
+
+      throw error;
+    }
+  };
+}
