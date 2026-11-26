@@ -1,3 +1,5 @@
+import { Registration } from '../domain/Credentials';
+
 export interface AuthAccount {
   id: number;
   roleId: number;
@@ -10,6 +12,13 @@ export interface AuthAccount {
   updatedAt: Date;
 }
 
+export interface AdminRole {
+  id: number;
+  name: string;
+}
+
 export interface AuthRepository {
   findByEmail: (email: string) => Promise<AuthAccount | undefined>;
+  resolveAdminRole: () => Promise<AdminRole>;
+  register: (roleId: number, registration: Registration) => Promise<AuthAccount>;
 }

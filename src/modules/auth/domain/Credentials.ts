@@ -5,6 +5,20 @@ export interface LoginCredentials {
   password: string;
 }
 
+export interface Registration {
+  name: string;
+  email: string;
+  password: string;
+  status: boolean;
+}
+
+export interface Registration {
+  name: string;
+  email: string;
+  password: string;
+  status: boolean;
+}
+
 export interface AuthIdentity {
   id: number;
   roleId: number;
@@ -25,4 +39,34 @@ export const parseLoginCredentials = (input: unknown): LoginCredentials => {
   }
 
   return { email: email.trim(), password };
+};
+
+export const parseRegistration = (input: unknown): Registration => {
+  const { name, email, password, status } = (input ?? {}) as Record<string, unknown>;
+
+  if (
+    typeof name !== 'string' ||
+    !name.trim() ||
+    typeof email !== 'string' ||
+    !email.trim() ||
+    typeof password !== 'string' ||
+    !password
+  ) {
+    throw new DomainError('El nombre, el correo y la contraseña son obligatorios');
+  }
+
+  if (!email.includes('@')) {
+    throw new DomainError('El correo no es válido');
+  }
+
+  if (status !== undefined && typeof status !== 'boolean') {
+    throw new DomainError('El estado del usuario debe ser verdadero o falso');
+  }
+
+  return {
+    name: name.trim(),
+    email: email.trim(),
+    password,
+    status: status ?? true,
+  };
 };

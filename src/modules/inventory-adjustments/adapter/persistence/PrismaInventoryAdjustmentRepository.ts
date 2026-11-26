@@ -1,6 +1,11 @@
 import { Prisma, PrismaClient } from '../../../../generated/prisma/client';
 import { DomainError } from '../../../../shared/DomainError';
-import { buildAdjustmentLines, InventoryAdjustment, NewInventoryAdjustment } from '../../domain/InventoryAdjustment';
+import {
+  buildAdjustmentLines,
+  InventoryAdjustment,
+  NewInventoryAdjustment,
+  reverseAdjustmentStock,
+} from '../../domain/InventoryAdjustment';
 import { InventoryAdjustmentRepository } from '../../ports/InventoryAdjustmentRepository';
 
 import { saveAdjustmentMovements } from '../../../inventory-movements/adapter/persistence/PrismaInventoryMovementRepository';
@@ -148,6 +153,50 @@ export class PrismaInventoryAdjustmentRepository implements InventoryAdjustmentR
 
       if (hasErrorCode(error, 'P2003')) {
         throw new DomainError(REFERENCE_NOT_FOUND_MESSAGE);
+      }
+
+      throw error;
+    }
+  };
+
+  remove = async (id: number): Promise<boolean> => {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const current = await tx.inventoryAdjustment.findUnique({
+          where: { id },
+          select: {
+            adjustmentType: true,
+            details: { select: { productId: true, quantity: true } },
+          },
+        });
+
+        if (!current) {
+          return false;
+        }
+
+        const productIds = current.details.map((detail) => detail.productId).sort((left, right) => left - right);
+        await lockProducts(tx, productIds);
+        const products = await tx.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, codeProduct: true, name: true, stock: true },
+        });
+        const reversed = reverseAdjustmentStock(current.adjustmentType, products, current.details);
+
+        for (const line of reversed) {
+          await tx.product.update({
+            where: { id: line.productId },
+            data: { stock: line.stockAfter, updatedAt: new Date() },
+          });
+        }
+
+        await tx.inventoryMovement.deleteMany({ where: { adjustmentId: id } });
+        await tx.inventoryAdjustmentDetail.deleteMany({ where: { adjustmentId: id } });
+        await tx.inventoryAdjustment.delete({ where: { id } });
+        return true;
+      });
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
       }
 
       throw error;

@@ -68,6 +68,13 @@ describe('authentication', () => {
     expect(response.status).toBe(401);
     expect(response.body.error).toBe('No autorizado');
   });
+
+  it('rejects deleting an inventory adjustment when the request has no token', async () => {
+    const response = await request(app).delete('/inventory-adjustments/1');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe('No autorizado');
+  });
 });
 
 describe('CORS', () => {

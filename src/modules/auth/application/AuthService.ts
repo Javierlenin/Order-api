@@ -2,11 +2,18 @@ import jwt, { type SignOptions } from 'jsonwebtoken';
 import { UnauthorizedError } from '../../../shared/UnauthorizedError';
 import { verifyPassword } from '../../../shared/password';
 import { User } from '../../users/domain/User';
-import { AuthIdentity, parseLoginCredentials } from '../domain/Credentials';
+import { AuthIdentity, parseLoginCredentials, parseRegistration } from '../domain/Credentials';
 import { AuthAccount, AuthRepository } from '../ports/AuthRepository';
 
 const INVALID_CREDENTIALS_MESSAGE = 'El correo o la contraseña no son válidos';
 const UNAUTHORIZED_MESSAGE = 'No autorizado';
+
+const signToken = (user: User, jwtSecret: string, expiresIn: SignOptions['expiresIn']): string =>
+  jwt.sign(
+    { sub: String(user.id), roleId: user.roleId, roleName: user.roleName, name: user.name, email: user.email },
+    jwtSecret,
+    { expiresIn },
+  );
 
 const toUser = (account: AuthAccount): User => ({
   id: account.id,
@@ -48,13 +55,17 @@ export class AuthService {
     }
 
     const user = toUser(account);
-    const token = jwt.sign(
-      { sub: String(user.id), roleId: user.roleId, roleName: user.roleName, name: user.name, email: user.email },
-      this.jwtSecret,
-      { expiresIn: this.expiresIn },
-    );
 
-    return { token, user };
+    return { token: signToken(user, this.jwtSecret, this.expiresIn), user };
+  };
+
+  register = async (input: unknown): Promise<{ token: string; user: User }> => {
+    const registration = parseRegistration(input);
+    const role = await this.repository.resolveAdminRole();
+    const account = await this.repository.register(role.id, registration);
+    const user = toUser(account);
+
+    return { token: signToken(user, this.jwtSecret, this.expiresIn), user };
   };
 
   verify = (token: string): AuthIdentity => {
