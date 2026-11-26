@@ -2,7 +2,8 @@ import express from 'express';
 import request from 'supertest';
 import { errorHandler } from '../../../../shared/httpErrorHandlers';
 import { hashPassword } from '../../../../shared/password';
-import { AuthAccount, AuthRepository } from '../../ports/AuthRepository';
+import { Registration } from '../../domain/Credentials';
+import { AdminRole, AuthAccount, AuthRepository } from '../../ports/AuthRepository';
 import { AuthService } from '../../application/AuthService';
 import { createAuthRouter } from './AuthRoutes';
 import { requireAuth } from './requireAuth';
@@ -24,6 +25,19 @@ const account: AuthAccount = {
 class FakeAuthRepository implements AuthRepository {
   findByEmail = async (email: string): Promise<AuthAccount | undefined> =>
     account.email === email ? account : undefined;
+
+  resolveAdminRole = async (): Promise<AdminRole> => ({ id: account.roleId, name: 'Admin' });
+
+  register = async (roleId: number, registration: Registration): Promise<AuthAccount> => ({
+    ...account,
+    id: 9,
+    roleId,
+    roleName: 'Admin',
+    name: registration.name,
+    email: registration.email,
+    status: registration.status,
+    passwordHash: hashPassword(registration.password),
+  });
 }
 
 const service = new AuthService(new FakeAuthRepository(), 'secreto-de-prueba', '1h');
@@ -59,6 +73,33 @@ describe('POST /auth/login', () => {
     expect(missing.body.error).toBe('El correo y la contraseña son obligatorios');
     expect(invalid.status).toBe(401);
     expect(invalid.body.error).toBe('El correo o la contraseña no son válidos');
+  });
+
+  it('returns 201 and assigns the Admin role without receiving it in the body', async () => {
+    const response = await request(app).post('/auth/register').send({
+      name: 'Lenin',
+      email: 'nuevo@example.com',
+      password,
+      status: true,
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.user).toMatchObject({
+      name: 'Lenin',
+      email: 'nuevo@example.com',
+      roleId: account.roleId,
+      roleName: 'Admin',
+      status: true,
+    });
+    expect(response.body.user).not.toHaveProperty('passwordHash');
+    expect(typeof response.body.token).toBe('string');
+  });
+
+  it('returns 400 when the registration body is incomplete', async () => {
+    const response = await request(app).post('/auth/register').send({ email: 'nuevo@example.com', password });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('El nombre, el correo y la contraseña son obligatorios');
   });
 
   it('returns 401 when the protected route has no token', async () => {

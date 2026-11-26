@@ -41,6 +41,13 @@ describe('authentication', () => {
     expect(response.body.error).toBe('No autorizado');
   });
 
+  it('rejects categories when the request has no token', async () => {
+    const response = await request(app).get('/categories');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe('No autorizado');
+  });
+
   it('rejects the inventory movement history when the request has no token', async () => {
     const response = await request(app).get('/inventory-movements');
 
@@ -57,6 +64,13 @@ describe('authentication', () => {
 
   it('rejects an inventory adjustment when the request has no token', async () => {
     const response = await request(app).post('/inventory-adjustments').send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe('No autorizado');
+  });
+
+  it('rejects deleting an inventory adjustment when the request has no token', async () => {
+    const response = await request(app).delete('/inventory-adjustments/1');
 
     expect(response.status).toBe(401);
     expect(response.body.error).toBe('No autorizado');

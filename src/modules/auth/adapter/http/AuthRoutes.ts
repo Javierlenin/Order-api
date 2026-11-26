@@ -10,5 +10,10 @@ export const createAuthRouter = (service: AuthService): Router => {
     res.status(HTTP_STATUS.OK).json(session);
   });
 
+  router.post('/register', async (req, res) => {
+    const session = await service.register(req.body);
+    res.status(HTTP_STATUS.CREATED).json(session);
+  });
+
   return router;
 };

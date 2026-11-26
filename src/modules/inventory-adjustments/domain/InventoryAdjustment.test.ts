@@ -1,5 +1,10 @@
 import { DomainError } from '../../../shared/DomainError';
-import { AdjustmentProductStock, buildAdjustmentLines, parseNewInventoryAdjustment } from './InventoryAdjustment';
+import {
+  AdjustmentProductStock,
+  buildAdjustmentLines,
+  parseNewInventoryAdjustment,
+  reverseAdjustmentStock,
+} from './InventoryAdjustment';
 
 const products: AdjustmentProductStock[] = [
   { id: 1, codeProduct: 'PROD-001', name: 'Cuaderno', stock: 10 },
@@ -107,5 +112,27 @@ describe('buildAdjustmentLines', () => {
     expect(() => buildAdjustmentLines('INGRESO', products, [{ productId: 9, quantity: 1 }])).toThrow(
       'Uno o más productos no existen',
     );
+  });
+});
+
+describe('reverseAdjustmentStock', () => {
+  it('subtracts an ingreso and adds back a salida', () => {
+    expect(reverseAdjustmentStock('INGRESO', products, [{ productId: 1, quantity: 5 }])).toEqual([
+      { productId: 1, stockAfter: 5 },
+    ]);
+    expect(reverseAdjustmentStock('SALIDA', products, [{ productId: 2, quantity: 4 }])).toEqual([
+      { productId: 2, stockAfter: 8 },
+    ]);
+  });
+
+  it('rejects a reversal that would leave the stock negative or above the limit', () => {
+    expect(() => reverseAdjustmentStock('INGRESO', products, [{ productId: 2, quantity: 5 }])).toThrow(
+      'Eliminar el ajuste dejaría el stock en negativo',
+    );
+    expect(() =>
+      reverseAdjustmentStock('SALIDA', [{ id: 1, codeProduct: 'PROD-001', name: 'Cuaderno', stock: 2_147_483_647 }], [
+        { productId: 1, quantity: 1 },
+      ]),
+    ).toThrow('Eliminar el ajuste excede el stock permitido');
   });
 });

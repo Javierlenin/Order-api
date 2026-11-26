@@ -27,11 +27,14 @@ export interface AdjustmentLine {
   stockAfter: number;
   userId: number;
   userName: string;
+  reason: string | null;
 }
 
 export interface MovementLine {
   id: number;
   adjustmentId: number | null;
+  orderId: number | null;
+  orderNumber: number | null;
   productId: number;
   occurredAt: Date;
   type: StockMovementType;
@@ -40,6 +43,8 @@ export interface MovementLine {
   stockAfter: number;
   userId: number;
   userName: string;
+  reason: string | null;
+  notes: string | null;
 }
 
 export interface StockEvent {
@@ -53,6 +58,7 @@ export interface StockEvent {
   stockAfter: number;
   userId: number;
   userName: string;
+  description: string;
 }
 
 export interface ProductStock {
@@ -72,6 +78,7 @@ export interface StockMovement {
   stockAfter: number;
   userId: number;
   userName: string;
+  description: string;
 }
 
 export interface ProductStockReport {
@@ -147,16 +154,69 @@ export const parseStockQuery = (input: unknown): StockQuery => {
 const compareEvents = (left: StockEvent, right: StockEvent): number =>
   left.occurredAt.getTime() - right.occurredAt.getTime() || left.id - right.id;
 
+const detailText = (value: string | null): string => value?.trim() ?? '';
+
+export const describeAdjustment = (adjustmentId: number, reason: string | null): string => {
+  const text = detailText(reason);
+  return text ? `Ajuste ${adjustmentId}: ${text}` : `Ajuste ${adjustmentId}`;
+};
+
+export const describeOrder = (orderNumber: number, notes: string | null): string => {
+  const text = detailText(notes);
+  return text ? `Pedido ${orderNumber}: ${text}` : `Pedido ${orderNumber}`;
+};
+
+export const describeMovement = (line: MovementLine): string => {
+  if (line.adjustmentId !== null) {
+    return describeAdjustment(line.adjustmentId, line.reason);
+  }
+
+  if (line.orderId !== null) {
+    return describeOrder(line.orderNumber ?? line.orderId, line.notes);
+  }
+
+  return detailText(line.reason) || '—';
+};
+
+const toEvent = (
+  line: Pick<
+    StockEvent,
+    | 'id'
+    | 'productId'
+    | 'occurredAt'
+    | 'type'
+    | 'quantity'
+    | 'stockBefore'
+    | 'stockAfter'
+    | 'userId'
+    | 'userName'
+  >,
+  origin: StockEvent['origin'],
+  description: string,
+): StockEvent => ({
+  id: line.id,
+  origin,
+  productId: line.productId,
+  occurredAt: line.occurredAt,
+  type: line.type,
+  quantity: line.quantity,
+  stockBefore: line.stockBefore,
+  stockAfter: line.stockAfter,
+  userId: line.userId,
+  userName: line.userName,
+  description,
+});
+
 export const buildStockHistory = (adjustments: AdjustmentLine[], movements: MovementLine[]): StockEvent[] => {
   const covered = new Set(
     movements
       .filter((movement) => movement.adjustmentId !== null)
       .map((movement) => `${movement.adjustmentId}:${movement.productId}`),
   );
-  const adjustmentEvents: StockEvent[] = adjustments
+  const adjustmentEvents = adjustments
     .filter((line) => !covered.has(`${line.adjustmentId}:${line.productId}`))
-    .map((line) => ({ ...line, origin: 'ADJUSTMENT' }));
-  const movementEvents: StockEvent[] = movements.map((line) => ({ ...line, origin: 'MOVEMENT' }));
+    .map((line) => toEvent(line, 'ADJUSTMENT', describeAdjustment(line.adjustmentId, line.reason)));
+  const movementEvents = movements.map((line) => toEvent(line, 'MOVEMENT', describeMovement(line)));
 
   return [...adjustmentEvents, ...movementEvents].sort(compareEvents);
 };

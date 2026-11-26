@@ -1,7 +1,8 @@
 import { DomainError } from '../../../shared/DomainError';
 import { hashPassword } from '../../../shared/password';
 import { UnauthorizedError } from '../../../shared/UnauthorizedError';
-import { AuthAccount, AuthRepository } from '../ports/AuthRepository';
+import { Registration } from '../domain/Credentials';
+import { AdminRole, AuthAccount, AuthRepository } from '../ports/AuthRepository';
 import { AuthService } from './AuthService';
 
 const password = 'secreto';
@@ -23,6 +24,24 @@ class FakeAuthRepository implements AuthRepository {
 
   findByEmail = async (email: string): Promise<AuthAccount | undefined> =>
     this.accounts.find((current) => current.email === email);
+
+  resolveAdminRole = async (): Promise<AdminRole> => ({ id: 2, name: 'Admin' });
+
+  register = async (roleId: number, registration: Registration): Promise<AuthAccount> => {
+    const created: AuthAccount = {
+      id: this.accounts.length + 1,
+      roleId,
+      roleName: 'Admin',
+      name: registration.name,
+      email: registration.email,
+      passwordHash: hashPassword(registration.password),
+      status: registration.status,
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    };
+    this.accounts.push(created);
+    return created;
+  };
 }
 
 const createService = (accounts: AuthAccount[] = [account]): AuthService =>
@@ -67,6 +86,40 @@ describe('AuthService', () => {
 
   it('rejects incomplete credentials before looking up the user', async () => {
     await expect(createService().login({ email: 'ana@example.com' })).rejects.toThrow(DomainError);
+  });
+
+  it('registers the name, email, password and status with the Admin role', async () => {
+    const service = createService([]);
+    const session = await service.register({
+      name: ' Lenin ',
+      email: ' lenin@example.com ',
+      password: 'secreto',
+      status: true,
+    });
+
+    expect(session.user).toMatchObject({
+      roleId: 2,
+      roleName: 'Admin',
+      name: 'Lenin',
+      email: 'lenin@example.com',
+      status: true,
+    });
+    expect(session.user).not.toHaveProperty('password');
+    expect(session.user).not.toHaveProperty('passwordHash');
+    expect(service.verify(session.token).email).toBe('lenin@example.com');
+    await expect(service.login({ email: 'lenin@example.com', password: 'secreto' })).resolves.toMatchObject({
+      user: { email: 'lenin@example.com' },
+    });
+  });
+
+  it('keeps a new account active when the status is omitted', async () => {
+    const session = await createService([]).register({
+      name: 'Lenin',
+      email: 'lenin@example.com',
+      password: 'secreto',
+    });
+
+    expect(session.user.status).toBe(true);
   });
 
   it('rejects a token that was not issued by this service', () => {
