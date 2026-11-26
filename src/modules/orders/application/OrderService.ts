@@ -40,4 +40,12 @@ export class OrderService {
 
     return order;
   };
+
+  remove = async (id: number): Promise<void> => {
+    const removed = await this.repository.remove(id);
+
+    if (!removed) {
+      throw new NotFoundError(ORDER_NOT_FOUND_MESSAGE);
+    }
+  };
 }

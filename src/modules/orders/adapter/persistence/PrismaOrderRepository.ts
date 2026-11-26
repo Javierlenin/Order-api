@@ -99,6 +99,7 @@ const CUSTOMER_INACTIVE = 'El cliente indicado no está activo';
 const USER_NOT_FOUND = 'El usuario responsable no existe';
 const USER_INACTIVE = 'El usuario responsable no está activo';
 const PENDING_ONLY = 'Solo se puede editar un pedido pendiente';
+const PENDING_DELETE_ONLY = 'Solo se puede eliminar un pedido pendiente';
 
 const assertParties = async (tx: Prisma.TransactionClient, order: NewOrder): Promise<void> => {
   const customer = await tx.customer.findUnique({
@@ -284,5 +285,24 @@ export class PrismaOrderRepository implements OrderRepository {
       });
 
       return toOrder(record);
+    });
+
+  remove = async (id: number): Promise<boolean> =>
+    this.prisma.$transaction(async (tx) => {
+      await lockOrder(tx, id);
+      const current = await tx.order.findUnique({ where: { id }, select: { status: true } });
+
+      if (!current) {
+        return false;
+      }
+
+      if (current.status !== 'PENDIENTE') {
+        throw new DomainError(PENDING_DELETE_ONLY);
+      }
+
+      await tx.orderDetail.deleteMany({ where: { orderId: id } });
+      await tx.orderStatusHistory.deleteMany({ where: { orderId: id } });
+      await tx.order.delete({ where: { id } });
+      return true;
     });
 }
