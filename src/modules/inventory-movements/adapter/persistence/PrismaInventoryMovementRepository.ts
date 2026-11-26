@@ -1,7 +1,16 @@
 import { Prisma, PrismaClient } from '../../../../generated/prisma/client';
 import { DomainError } from '../../../../shared/DomainError';
 
-import { InventoryMovement, MovementQuery, NewInventoryMovement } from '../../domain/InventoryMovement';
+import {
+  AdjustmentMovementSource,
+  InventoryMovement,
+  MovementQuery,
+  movementsFromAdjustment,
+  movementsFromOrderCancellation,
+  movementsFromOrderConfirmation,
+  NewInventoryMovement,
+  OrderMovementSource,
+} from '../../domain/InventoryMovement';
 
 import { InventoryMovementRepository } from '../../ports/InventoryMovementRepository';
 

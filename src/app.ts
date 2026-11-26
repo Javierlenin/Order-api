@@ -20,6 +20,9 @@ import { createReportRouter } from './modules/reports/adapter/http/ReportRoutes'
 import { PrismaOrderRepository } from './modules/orders/adapter/persistence/PrismaOrderRepository';
 import { OrderService } from './modules/orders/application/OrderService';
 import { createOrderRouter } from './modules/orders/adapter/http/OrderRoutes';
+import { PrismaCustomerRepository } from './modules/customers/adapter/persistence/PrismaCustomerRepository';
+import { CustomerService } from './modules/customers/application/CustomerService';
+import { createCustomerRouter } from './modules/customers/adapter/http/CustomerRoutes';
 import { PrismaProductRepository } from './modules/products/adapter/persistence/PrismaProductRepository';
 import { ProductService } from './modules/products/application/ProductService';
 import { createProductRouter } from './modules/products/adapter/http/ProductRoutes';
@@ -29,13 +32,6 @@ import { createInventoryMovementRouter } from './modules/inventory-movements/ada
 import { PrismaInventoryAdjustmentRepository } from './modules/inventory-adjustments/adapter/persistence/PrismaInventoryAdjustmentRepository';
 import { InventoryAdjustmentService } from './modules/inventory-adjustments/application/InventoryAdjustmentService';
 import { createInventoryAdjustmentRouter } from './modules/inventory-adjustments/adapter/http/InventoryAdjustmentRoutes';
-
-import { PrismaInventoryMovementRepository } from './modules/inventory-movements/adapter/persistence/PrismaInventoryMovementRepository';
-import { InventoryMovementService } from './modules/inventory-movements/application/InventoryMovementService';
-import { createInventoryMovementRouter } from './modules/inventory-movements/adapter/http/InventoryMovementRoutes';
-import { PrismaProductRepository } from './modules/products/adapter/persistence/PrismaProductRepository';
-import { ProductService } from './modules/products/application/ProductService';
-import { createProductRouter } from './modules/products/adapter/http/ProductRoutes';
 
 const app = express();
 
@@ -60,12 +56,11 @@ const userService = new UserService(new PrismaUserRepository(prisma));
 const authService = new AuthService(new PrismaAuthRepository(prisma), jwtSecret);
 const reportService = new ReportService(new PrismaReportRepository(prisma));
 const orderService = new OrderService(new PrismaOrderRepository(prisma));
+const customerService = new CustomerService(new PrismaCustomerRepository(prisma));
 const productService = new ProductService(new PrismaProductRepository(prisma));
 const inventoryMovementService = new InventoryMovementService(new PrismaInventoryMovementRepository(prisma));
 const inventoryAdjustmentService = new InventoryAdjustmentService(new PrismaInventoryAdjustmentRepository(prisma));
 
-const inventoryMovementService = new InventoryMovementService(new PrismaInventoryMovementRepository(prisma));
-const productService = new ProductService(new PrismaProductRepository(prisma));
 app.get('/health', (_req, res) => {
   res.status(HTTP_STATUS.OK).json({ status: 'ok' });
 });
@@ -74,14 +69,10 @@ app.use('/auth', createAuthRouter(authService));
 app.use('/roles', requireAuth(authService), createRoleRouter(roleService));
 app.use('/users', requireAuth(authService), createUserRouter(userService));
 app.use('/reports', requireAuth(authService), createReportRouter(reportService));
+app.use('/customers', requireAuth(authService), createCustomerRouter(customerService));
 app.use('/orders', requireAuth(authService), createOrderRouter(orderService));
 app.use('/products', requireAuth(authService), createProductRouter(productService));
 app.use('/inventory-movements', requireAuth(authService), createInventoryMovementRouter(inventoryMovementService));
-app.use('/inventory-adjustments', requireAuth(authService), createInventoryAdjustmentRouter(inventoryAdjustmentService));
-
-app.use('/inventory-movements', requireAuth(authService), createInventoryMovementRouter(inventoryMovementService));
-app.use('/products', requireAuth(authService), createProductRouter(productService));
-
 app.use('/inventory-adjustments', requireAuth(authService), createInventoryAdjustmentRouter(inventoryAdjustmentService));
 
 app.use(notFoundHandler);

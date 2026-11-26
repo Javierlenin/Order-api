@@ -33,7 +33,7 @@ export const errorHandler = (
   const status = err.status ?? HTTP_STATUS.INTERNAL_SERVER_ERROR;
 
   if (status >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
-    console.error(err);
+    //console.error(err);
   }
 
   res.status(status).json({

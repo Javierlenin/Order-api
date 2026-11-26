@@ -1,16 +1,6 @@
 import { DomainError } from '../../../shared/DomainError';
 import { NotFoundError } from '../../../shared/NotFoundError';
-
-import { InventoryAdjustment, NewInventoryAdjustment } from '../domain/InventoryAdjustment';
-import { InventoryAdjustmentRepository } from '../ports/InventoryAdjustmentRepository';
-import { InventoryAdjustmentService } from './InventoryAdjustmentService';
-
-class FakeInventoryAdjustmentRepository implements InventoryAdjustmentRepository {
-  adjustments: InventoryAdjustment[] = [];
-  saved: NewInventoryAdjustment[] = [];
-
-
-import { calculateStockChanges, InventoryAdjustment, NewInventoryAdjustment } from '../domain/InventoryAdjustment';
+import { buildAdjustmentLines, InventoryAdjustment, NewInventoryAdjustment } from '../domain/InventoryAdjustment';
 import { InventoryAdjustmentRepository } from '../ports/InventoryAdjustmentRepository';
 import { InventoryAdjustmentService } from './InventoryAdjustmentService';
 
@@ -18,6 +8,7 @@ type StoredProduct = { codeProduct: string; name: string; stock: number };
 
 class FakeInventoryAdjustmentRepository implements InventoryAdjustmentRepository {
   adjustments: InventoryAdjustment[] = [];
+  saved: NewInventoryAdjustment[] = [];
   products = new Map<number, StoredProduct>([
     [1, { codeProduct: 'PROD-001', name: 'Cuaderno', stock: 10 }],
     [2, { codeProduct: 'PROD-002', name: 'Lápiz', stock: 4 }],
@@ -32,75 +23,40 @@ class FakeInventoryAdjustmentRepository implements InventoryAdjustmentRepository
     this.adjustments.find((adjustment) => adjustment.id === id);
 
   save = async (adjustment: NewInventoryAdjustment): Promise<InventoryAdjustment> => {
-
-    this.saved.push(adjustment);
-    const created: InventoryAdjustment = {
-      id: this.adjustments.length + 1,
-      userId: adjustment.userId,
-      userName: 'Ana Ruiz',
-      adjustmentType: adjustment.adjustmentType,
-      reason: adjustment.reason,
-      createdAt: new Date('2026-03-01T15:30:00.000Z'),
-      details: adjustment.details.map((detail, index) => ({
-        id: index + 1,
-        productId: detail.productId,
-        codeProduct: 'PROD-001',
-        productName: 'Cuaderno',
-        quantity: detail.quantity,
-        stockBefore: 10,
-        stockAfter: adjustment.adjustmentType === 'SALIDA' ? 10 - detail.quantity : 10 + detail.quantity,
-      })),
-    };
-
-
     const userName = this.users.get(adjustment.userId);
 
     if (!userName) {
       throw new DomainError('El usuario indicado no existe');
     }
 
-    const stocks = new Map([...this.products.entries()].map(([id, product]) => [id, product.stock]));
-    const changes = calculateStockChanges(adjustment.adjustmentType, adjustment.details, stocks);
+    const products = [...this.products.entries()].map(([id, product]) => ({ id, ...product }));
+    const lines = buildAdjustmentLines(adjustment.adjustmentType, products, adjustment.details);
     const created: InventoryAdjustment = {
       id: this.nextAdjustmentId++,
       userId: adjustment.userId,
       userName,
       adjustmentType: adjustment.adjustmentType,
       reason: adjustment.reason,
-      createdAt: new Date(),
-      details: changes.map((change) => {
-        const product = this.products.get(change.productId);
-
-        if (!product) {
-          throw new DomainError('El producto indicado no existe');
-        }
-
-        return {
-          id: this.nextDetailId++,
-          productId: change.productId,
-          codeProduct: product.codeProduct,
-          productName: product.name,
-          quantity: change.quantity,
-          stockBefore: change.stockBefore,
-          stockAfter: change.stockAfter,
-        };
-      }),
+      createdAt: new Date('2026-03-01T15:30:00.000Z'),
+      details: lines.map((line) => ({
+        id: this.nextDetailId++,
+        ...line,
+      })),
     };
 
-    for (const change of changes) {
-      const product = this.products.get(change.productId);
+    for (const line of lines) {
+      const product = this.products.get(line.productId);
 
       if (product) {
-        product.stock = change.stockAfter;
+        product.stock = line.stockAfter;
       }
     }
 
-
+    this.saved.push(adjustment);
     this.adjustments.push(created);
     return created;
   };
 }
-
 
 const validInput = {
   userId: 7,
@@ -112,26 +68,15 @@ const validInput = {
   ],
 };
 
-
-
 const createService = (): { service: InventoryAdjustmentService; repository: FakeInventoryAdjustmentRepository } => {
   const repository = new FakeInventoryAdjustmentRepository();
   return { service: new InventoryAdjustmentService(repository), repository };
 };
 
 describe('InventoryAdjustmentService', () => {
-
   it('registers the header with its details', async () => {
     const { service, repository } = createService();
-    const created = await service.create({
-      userId: 7,
-      adjustmentType: 'INGRESO',
-      reason: '  Inventario inicial  ',
-      details: [
-        { productId: 1, quantity: 5 },
-        { productId: 2, quantity: 2 },
-      ],
-    });
+    const created = await service.create(validInput);
 
     expect(repository.saved).toEqual([
       {
@@ -144,23 +89,39 @@ describe('InventoryAdjustmentService', () => {
         ],
       },
     ]);
-
-
-  it('registers the header, the product lines, the responsible user, and the date', async () => {
-    const { service, repository } = createService();
-    const created = await service.create(validInput);
-
     expect(created).toMatchObject({
       id: 1,
       userId: 7,
       userName: 'Ana Ruiz',
       adjustmentType: 'INGRESO',
       reason: 'Inventario inicial',
-
       createdAt: new Date('2026-03-01T15:30:00.000Z'),
     });
-    expect(created.details).toHaveLength(2);
+    expect(created.details).toEqual([
+      {
+        id: 1,
+        productId: 1,
+        codeProduct: 'PROD-001',
+        productName: 'Cuaderno',
+        quantity: 5,
+        stockBefore: 10,
+        stockAfter: 15,
+      },
+      {
+        id: 2,
+        productId: 2,
+        codeProduct: 'PROD-002',
+        productName: 'Lápiz',
+        quantity: 2,
+        stockBefore: 4,
+        stockAfter: 6,
+      },
+    ]);
+    expect(created.createdAt).toBeInstanceOf(Date);
+    expect(repository.products.get(1)?.stock).toBe(15);
+    expect(repository.products.get(2)?.stock).toBe(6);
     expect(await service.list()).toEqual([created]);
+    expect(await service.getById(created.id)).toEqual(created);
   });
 
   it('does not save an adjustment that fails validation', async () => {
@@ -176,18 +137,6 @@ describe('InventoryAdjustmentService', () => {
     const { service } = createService();
 
     await expect(service.getById(4)).rejects.toThrow(NotFoundError);
-
-
-      details: [
-        { productId: 1, codeProduct: 'PROD-001', quantity: 5, stockBefore: 10, stockAfter: 15 },
-        { productId: 2, codeProduct: 'PROD-002', quantity: 2, stockBefore: 4, stockAfter: 6 },
-      ],
-    });
-    expect(created.createdAt).toBeInstanceOf(Date);
-    expect(repository.products.get(1)?.stock).toBe(15);
-    expect(repository.products.get(2)?.stock).toBe(6);
-    expect(await service.list()).toEqual([created]);
-    expect(await service.getById(created.id)).toEqual(created);
   });
 
   it('decreases stock on a withdrawal and allows the stock to reach zero', async () => {
@@ -216,7 +165,7 @@ describe('InventoryAdjustmentService', () => {
           { productId: 2, quantity: 5 },
         ],
       }),
-    ).rejects.toThrow('El ajuste dejaría el stock del producto en negativo');
+    ).rejects.toThrow('El ajuste dejaría el stock en negativo');
 
     expect(await service.list()).toEqual([]);
     expect(repository.products.get(1)?.stock).toBe(10);
@@ -250,13 +199,11 @@ describe('InventoryAdjustmentService', () => {
     const { service, repository } = createService();
 
     await expect(service.create({ ...validInput, userId: 99 })).rejects.toThrow('El usuario indicado no existe');
-    await expect(
-      service.create({ ...validInput, details: [{ productId: 99, quantity: 1 }] }),
-    ).rejects.toThrow('El producto indicado no existe');
+    await expect(service.create({ ...validInput, details: [{ productId: 99, quantity: 1 }] })).rejects.toThrow(
+      'Uno o más productos no existen',
+    );
     expect(repository.products.get(1)?.stock).toBe(10);
     expect(await service.list()).toEqual([]);
     await expect(service.getById(99)).rejects.toThrow(NotFoundError);
-
-
   });
 });
