@@ -114,6 +114,21 @@ class FakeOrderRepository implements OrderRepository {
     return current;
   };
 
+  remove = async (id: number): Promise<boolean> => {
+    const current = await this.findById(id);
+
+    if (!current) {
+      return false;
+    }
+
+    if (current.status !== 'PENDIENTE') {
+      throw new DomainError('Solo se puede eliminar un pedido pendiente');
+    }
+
+    this.orders = this.orders.filter((order) => order.id !== id);
+    return true;
+  };
+
   private persist = async (current: Order | undefined, order: NewOrder): Promise<Order> => {
     assertActiveParty(this.customers.get(order.customerId), 'El cliente indicado no existe', 'El cliente indicado no está activo');
     assertActiveParty(this.users.get(order.userId), 'El usuario responsable no existe', 'El usuario responsable no está activo');
@@ -305,5 +320,21 @@ describe('OrderService', () => {
     );
     await expect(service.create({ ...validInput, details: [] })).rejects.toThrow('Debe registrar al menos un producto');
     await expect(service.getById(99)).rejects.toThrow(NotFoundError);
+  });
+
+  it('removes a pending order and rejects the removal of any other status', async () => {
+    const { service } = createService();
+    const pending = await service.create(validInput);
+    const confirmed = await service.create({
+      customerId: 1,
+      userId: 7,
+      details: [{ productId: 1, quantity: 1 }],
+    });
+
+    await service.changeStatus(confirmed.id, { status: 'CONFIRMADO' });
+    await service.remove(pending.id);
+    await expect(service.getById(pending.id)).rejects.toThrow(NotFoundError);
+    await expect(service.remove(confirmed.id)).rejects.toThrow('Solo se puede eliminar un pedido pendiente');
+    await expect(service.remove(99)).rejects.toThrow(NotFoundError);
   });
 });

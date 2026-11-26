@@ -6,4 +6,5 @@ export interface OrderRepository {
   save: (order: NewOrder) => Promise<Order>;
   update: (id: number, order: NewOrder) => Promise<Order | undefined>;
   changeStatus: (id: number, status: OrderStatus) => Promise<Order | undefined>;
+  remove: (id: number) => Promise<boolean>;
 }
