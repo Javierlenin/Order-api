@@ -22,6 +22,7 @@ const toMovement = (event: StockEvent): StockMovement => ({
   stockAfter: event.stockAfter,
   userId: event.userId,
   userName: event.userName,
+  description: event.description,
 });
 
 export class ReportService {

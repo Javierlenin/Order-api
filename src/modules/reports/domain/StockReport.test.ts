@@ -19,6 +19,7 @@ const ingreso: AdjustmentLine = {
   stockAfter: 10,
   userId: 2,
   userName: 'Ana Ruiz',
+  reason: 'Inventario inicial',
 };
 
 const salidaDuplicada: AdjustmentLine = {
@@ -32,11 +33,14 @@ const salidaDuplicada: AdjustmentLine = {
   stockAfter: 7,
   userId: 2,
   userName: 'Ana Ruiz',
+  reason: 'Merma',
 };
 
 const salidaPedido: MovementLine = {
   id: 8,
   adjustmentId: 11,
+  orderId: null,
+  orderNumber: null,
   productId: 4,
   occurredAt: new Date('2026-01-02T10:00:00.000Z'),
   type: 'SALIDA',
@@ -45,11 +49,15 @@ const salidaPedido: MovementLine = {
   stockAfter: 7,
   userId: 3,
   userName: 'Luis Pérez',
+  reason: 'Merma',
+  notes: null,
 };
 
 const devolucion: MovementLine = {
   id: 9,
-  adjustmentId: 12,
+  adjustmentId: null,
+  orderId: 4,
+  orderNumber: 15,
   productId: 4,
   occurredAt: new Date('2026-01-05T10:00:00.000Z'),
   type: 'DEVOLUCION',
@@ -58,6 +66,8 @@ const devolucion: MovementLine = {
   stockAfter: 8,
   userId: 3,
   userName: 'Luis Pérez',
+  reason: null,
+  notes: 'Cliente ausente',
 };
 
 describe('buildStockHistory', () => {
@@ -65,7 +75,15 @@ describe('buildStockHistory', () => {
     const history = buildStockHistory([ingreso, salidaDuplicada], [salidaPedido, devolucion]);
 
     expect(history.map((event) => event.type)).toEqual(['INGRESO', 'SALIDA', 'DEVOLUCION']);
-    expect(history[1]).toMatchObject({ origin: 'MOVEMENT', userName: 'Luis Pérez', stockBefore: 10, stockAfter: 7 });
+    expect(history[0]).toMatchObject({ description: 'Ajuste 10: Inventario inicial' });
+    expect(history[1]).toMatchObject({
+      origin: 'MOVEMENT',
+      userName: 'Luis Pérez',
+      stockBefore: 10,
+      stockAfter: 7,
+      description: 'Ajuste 11: Merma',
+    });
+    expect(history[2]).toMatchObject({ description: 'Pedido 15: Cliente ausente' });
     expect(currentStock(history)).toBe(8);
   });
 

@@ -19,6 +19,7 @@ export class PrismaReportRepository implements ReportRepository {
         adjustment: {
           select: {
             adjustmentType: true,
+            reason: true,
             createdAt: true,
             user: { select: { id: true, name: true } },
           },
@@ -37,18 +38,24 @@ export class PrismaReportRepository implements ReportRepository {
       stockAfter: detail.stockAfter,
       userId: detail.adjustment.user.id,
       userName: detail.adjustment.user.name,
+      reason: detail.adjustment.reason,
     }));
   };
 
   listMovements = async (productId: number): Promise<MovementLine[]> => {
     const movements = await this.prisma.inventoryMovement.findMany({
       where: { productId },
-      include: { user: { select: { id: true, name: true } } },
+      include: {
+        user: { select: { id: true, name: true } },
+        order: { select: { orderNumber: true, notes: true } },
+      },
     });
 
     return movements.map((movement) => ({
       id: movement.id,
       adjustmentId: movement.adjustmentId,
+      orderId: movement.orderId,
+      orderNumber: movement.order?.orderNumber ?? null,
       productId: movement.productId,
       occurredAt: movement.createdAt,
       type: movement.movementType,
@@ -57,6 +64,8 @@ export class PrismaReportRepository implements ReportRepository {
       stockAfter: movement.stockAfter,
       userId: movement.user.id,
       userName: movement.user.name,
+      reason: movement.description,
+      notes: movement.order?.notes ?? null,
     }));
   };
 }
