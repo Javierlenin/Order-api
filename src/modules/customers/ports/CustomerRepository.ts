@@ -6,4 +6,5 @@ export interface CustomerRepository {
   save: (customer: NewCustomer) => Promise<Customer>;
   update: (id: number, customer: NewCustomer) => Promise<Customer | undefined>;
   updateStatus: (id: number, status: boolean) => Promise<Customer | undefined>;
+  remove: (id: number) => Promise<boolean>;
 }

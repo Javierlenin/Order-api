@@ -51,6 +51,12 @@ class FakeCustomerRepository implements CustomerRepository {
     this.customers = this.customers.map((customer) => (customer.id === id ? updated : customer));
     return updated;
   };
+
+  remove = async (id: number): Promise<boolean> => {
+    const before = this.customers.length;
+    this.customers = this.customers.filter((customer) => customer.id !== id);
+    return this.customers.length < before;
+  };
 }
 
 const validInput = {
@@ -106,5 +112,15 @@ describe('CustomerService', () => {
     const service = createService();
     await expect(service.getById(99)).rejects.toThrow(NotFoundError);
     await expect(service.update(99, validInput)).rejects.toThrow(NotFoundError);
+    await expect(service.remove(99)).rejects.toThrow(NotFoundError);
+  });
+
+  it('removes a customer', async () => {
+    const service = createService();
+    const created = await service.create(validInput);
+
+    await service.remove(created.id);
+
+    expect(await service.list()).toEqual([]);
   });
 });

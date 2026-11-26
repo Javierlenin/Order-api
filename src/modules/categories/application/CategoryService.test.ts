@@ -49,6 +49,12 @@ class FakeCategoryRepository implements CategoryRepository {
     this.categories = this.categories.map((category) => (category.id === id ? updated : category));
     return updated;
   };
+
+  remove = async (id: number): Promise<boolean> => {
+    const before = this.categories.length;
+    this.categories = this.categories.filter((category) => category.id !== id);
+    return this.categories.length < before;
+  };
 }
 
 const createService = (): CategoryService => new CategoryService(new FakeCategoryRepository());
@@ -85,5 +91,15 @@ describe('CategoryService', () => {
     expect(updated.name).toBe('Repuestos');
     expect(inactive.status).toBe(false);
     await expect(service.setStatus(created.id, { status: 0 })).rejects.toThrow(DomainError);
+  });
+
+  it('removes a category and throws NotFoundError when it does not exist', async () => {
+    const service = createService();
+    const created = await service.create({ name: 'Accesorios' });
+
+    await service.remove(created.id);
+
+    expect(await service.list()).toEqual([]);
+    await expect(service.remove(created.id)).rejects.toThrow(NotFoundError);
   });
 });

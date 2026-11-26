@@ -38,6 +38,9 @@ const hasErrorCode = (error: unknown, code: string): boolean =>
 
 const PRODUCT_CODE_ALREADY_EXISTS_MESSAGE = 'El código del producto ya está registrado';
 const CATEGORY_NOT_FOUND_MESSAGE = 'La categoría indicada no existe';
+const PRODUCT_HAS_RELATIONS_MESSAGE = 'No se puede eliminar el producto porque tiene registros relacionados';
+
+const isRelationViolation = (error: unknown): boolean => hasErrorCode(error, 'P2003') || hasErrorCode(error, 'P2014');
 
 export class PrismaProductRepository implements ProductRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -100,6 +103,21 @@ export class PrismaProductRepository implements ProductRepository {
     } catch (error) {
       if (hasErrorCode(error, 'P2025')) {
         return undefined;
+      }
+      throw error;
+    }
+  };
+
+  remove = async (id: number): Promise<boolean> => {
+    try {
+      await this.prisma.product.delete({ where: { id } });
+      return true;
+    } catch (error) {
+      if (hasErrorCode(error, 'P2025')) {
+        return false;
+      }
+      if (isRelationViolation(error)) {
+        throw new DomainError(PRODUCT_HAS_RELATIONS_MESSAGE);
       }
       throw error;
     }

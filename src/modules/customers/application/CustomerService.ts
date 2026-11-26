@@ -34,4 +34,11 @@ export class CustomerService {
     }
     return customer;
   };
+
+  remove = async (id: number): Promise<void> => {
+    const removed = await this.repository.remove(id);
+    if (!removed) {
+      throw new NotFoundError(CUSTOMER_NOT_FOUND_MESSAGE);
+    }
+  };
 }

@@ -7,6 +7,9 @@ const hasErrorCode = (error: unknown, code: string): boolean =>
   typeof error === 'object' && error !== null && (error as { code?: string }).code === code;
 
 const IDENTIFICATION_ALREADY_EXISTS_MESSAGE = 'La identificación ya está registrada';
+const CUSTOMER_HAS_ORDERS_MESSAGE = 'No se puede eliminar el cliente porque tiene pedidos relacionados';
+
+const isRelationViolation = (error: unknown): boolean => hasErrorCode(error, 'P2003') || hasErrorCode(error, 'P2014');
 
 export class PrismaCustomerRepository implements CustomerRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -63,6 +66,21 @@ export class PrismaCustomerRepository implements CustomerRepository {
     } catch (error) {
       if (hasErrorCode(error, 'P2025')) {
         return undefined;
+      }
+      throw error;
+    }
+  };
+
+  remove = async (id: number): Promise<boolean> => {
+    try {
+      await this.prisma.customer.delete({ where: { id } });
+      return true;
+    } catch (error) {
+      if (hasErrorCode(error, 'P2025')) {
+        return false;
+      }
+      if (isRelationViolation(error)) {
+        throw new DomainError(CUSTOMER_HAS_ORDERS_MESSAGE);
       }
       throw error;
     }

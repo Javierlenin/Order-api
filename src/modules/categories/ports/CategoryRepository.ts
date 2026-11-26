@@ -6,4 +6,5 @@ export interface CategoryRepository {
   save: (category: NewCategory) => Promise<Category>;
   update: (id: number, category: NewCategory) => Promise<Category | undefined>;
   updateStatus: (id: number, status: boolean) => Promise<Category | undefined>;
+  remove: (id: number) => Promise<boolean>;
 }
