@@ -34,4 +34,11 @@ export class CategoryService {
     }
     return category;
   };
+
+  remove = async (id: number): Promise<void> => {
+    const removed = await this.repository.remove(id);
+    if (!removed) {
+      throw new NotFoundError(CATEGORY_NOT_FOUND_MESSAGE);
+    }
+  };
 }

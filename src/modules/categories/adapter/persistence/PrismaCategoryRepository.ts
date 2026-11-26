@@ -7,6 +7,9 @@ const hasErrorCode = (error: unknown, code: string): boolean =>
   typeof error === 'object' && error !== null && (error as { code?: string }).code === code;
 
 const CATEGORY_NAME_ALREADY_EXISTS_MESSAGE = 'El nombre de la categoría ya está registrado';
+const CATEGORY_HAS_PRODUCTS_MESSAGE = 'No se puede eliminar la categoría porque tiene productos relacionados';
+
+const isRelationViolation = (error: unknown): boolean => hasErrorCode(error, 'P2003') || hasErrorCode(error, 'P2014');
 
 export class PrismaCategoryRepository implements CategoryRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -49,6 +52,21 @@ export class PrismaCategoryRepository implements CategoryRepository {
     } catch (error) {
       if (hasErrorCode(error, 'P2025')) {
         return undefined;
+      }
+      throw error;
+    }
+  };
+
+  remove = async (id: number): Promise<boolean> => {
+    try {
+      await this.prisma.category.delete({ where: { id } });
+      return true;
+    } catch (error) {
+      if (hasErrorCode(error, 'P2025')) {
+        return false;
+      }
+      if (isRelationViolation(error)) {
+        throw new DomainError(CATEGORY_HAS_PRODUCTS_MESSAGE);
       }
       throw error;
     }
