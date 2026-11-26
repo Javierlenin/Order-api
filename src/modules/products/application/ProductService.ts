@@ -42,4 +42,11 @@ export class ProductService {
     }
     return product;
   };
+
+  remove = async (id: number): Promise<void> => {
+    const removed = await this.repository.remove(id);
+    if (!removed) {
+      throw new NotFoundError(PRODUCT_NOT_FOUND_MESSAGE);
+    }
+  };
 }

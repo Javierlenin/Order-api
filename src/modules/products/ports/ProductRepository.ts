@@ -6,4 +6,5 @@ export interface ProductRepository {
   save: (product: NewProduct) => Promise<Product>;
   update: (id: number, product: NewProduct) => Promise<Product | undefined>;
   updateStatus: (id: number, status: boolean) => Promise<Product | undefined>;
+  remove: (id: number) => Promise<boolean>;
 }

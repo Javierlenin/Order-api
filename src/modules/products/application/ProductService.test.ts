@@ -52,6 +52,12 @@ class FakeProductRepository implements ProductRepository {
     this.products = this.products.map((product) => (product.id === id ? updated : product));
     return updated;
   };
+
+  remove = async (id: number): Promise<boolean> => {
+    const before = this.products.length;
+    this.products = this.products.filter((product) => product.id !== id);
+    return this.products.length < before;
+  };
 }
 
 const validInput = {
@@ -104,5 +110,15 @@ describe('ProductService', () => {
     expect(await service.list()).toEqual([created]);
     expect((await service.setStatus(created.id, { status: false })).status).toBe(false);
     await expect(service.setStatus(created.id, { status: 'false' })).rejects.toThrow(DomainError);
+  });
+
+  it('removes a product and throws NotFoundError when it does not exist', async () => {
+    const service = createService();
+    const created = await service.create(validInput);
+
+    await service.remove(created.id);
+
+    expect(await service.list()).toEqual([]);
+    await expect(service.remove(created.id)).rejects.toThrow(NotFoundError);
   });
 });
