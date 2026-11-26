@@ -20,13 +20,16 @@ const adjustments: AdjustmentLine[] = [
     stockAfter: 10,
     userId: 2,
     userName: 'Ana Ruiz',
+    reason: 'Inventario inicial',
   },
 ];
 
 const movements: MovementLine[] = [
   {
     id: 8,
-    adjustmentId: 11,
+    adjustmentId: null,
+    orderId: 3,
+    orderNumber: 8,
     productId: 4,
     occurredAt: new Date('2026-01-03T15:30:00.000Z'),
     type: 'DEVOLUCION',
@@ -35,6 +38,8 @@ const movements: MovementLine[] = [
     stockAfter: 10,
     userId: 3,
     userName: 'Luis Pérez',
+    reason: null,
+    notes: null,
   },
 ];
 
@@ -66,6 +71,7 @@ describe('stock reports', () => {
       stockBefore: 9,
       stockAfter: 10,
       userName: 'Luis Pérez',
+      description: 'Pedido 8',
     });
   });
 

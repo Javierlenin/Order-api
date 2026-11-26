@@ -1,6 +1,11 @@
 import { DomainError } from '../../../shared/DomainError';
 import { NotFoundError } from '../../../shared/NotFoundError';
-import { buildAdjustmentLines, InventoryAdjustment, NewInventoryAdjustment } from '../domain/InventoryAdjustment';
+import {
+  buildAdjustmentLines,
+  InventoryAdjustment,
+  NewInventoryAdjustment,
+  reverseAdjustmentStock,
+} from '../domain/InventoryAdjustment';
 import { InventoryAdjustmentRepository } from '../ports/InventoryAdjustmentRepository';
 import { InventoryAdjustmentService } from './InventoryAdjustmentService';
 
@@ -55,6 +60,33 @@ class FakeInventoryAdjustmentRepository implements InventoryAdjustmentRepository
     this.saved.push(adjustment);
     this.adjustments.push(created);
     return created;
+  };
+
+  remove = async (id: number): Promise<boolean> => {
+    const index = this.adjustments.findIndex((adjustment) => adjustment.id === id);
+
+    if (index < 0) {
+      return false;
+    }
+
+    const current = this.adjustments[index];
+    const products = [...this.products.entries()].map(([productId, product]) => ({ id: productId, ...product }));
+    const reversed = reverseAdjustmentStock(
+      current.adjustmentType,
+      products,
+      current.details.map((detail) => ({ productId: detail.productId, quantity: detail.quantity })),
+    );
+
+    for (const line of reversed) {
+      const product = this.products.get(line.productId);
+
+      if (product) {
+        product.stock = line.stockAfter;
+      }
+    }
+
+    this.adjustments.splice(index, 1);
+    return true;
   };
 }
 
@@ -205,5 +237,53 @@ describe('InventoryAdjustmentService', () => {
     expect(repository.products.get(1)?.stock).toBe(10);
     expect(await service.list()).toEqual([]);
     await expect(service.getById(99)).rejects.toThrow(NotFoundError);
+  });
+
+  it('reverses the stock and removes the adjustment', async () => {
+    const { service, repository } = createService();
+    const created = await service.create(validInput);
+
+    await service.remove(created.id);
+
+    expect(await service.list()).toEqual([]);
+    expect(repository.products.get(1)?.stock).toBe(10);
+    expect(repository.products.get(2)?.stock).toBe(4);
+    await expect(service.getById(created.id)).rejects.toThrow(NotFoundError);
+  });
+
+  it('restores stock when a withdrawal is removed', async () => {
+    const { service, repository } = createService();
+    const created = await service.create({
+      userId: 7,
+      adjustmentType: 'SALIDA',
+      reason: 'Merma',
+      details: [{ productId: 2, quantity: 4 }],
+    });
+
+    await service.remove(created.id);
+
+    expect(repository.products.get(2)?.stock).toBe(4);
+    expect(await service.list()).toEqual([]);
+  });
+
+  it('keeps the adjustment when reversing it would make stock negative', async () => {
+    const { service, repository } = createService();
+    const created = await service.create(validInput);
+    const product = repository.products.get(1);
+
+    if (product) {
+      product.stock = 4;
+    }
+
+    await expect(service.remove(created.id)).rejects.toThrow('Eliminar el ajuste dejaría el stock en negativo');
+    expect(await service.list()).toHaveLength(1);
+    expect(repository.products.get(1)?.stock).toBe(4);
+    expect(repository.products.get(2)?.stock).toBe(6);
+  });
+
+  it('throws when the adjustment to remove does not exist', async () => {
+    const { service } = createService();
+
+    await expect(service.remove(4)).rejects.toThrow(NotFoundError);
   });
 });

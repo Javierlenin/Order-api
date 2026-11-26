@@ -21,4 +21,12 @@ export class InventoryAdjustmentService {
 
   create = async (input: unknown): Promise<InventoryAdjustment> =>
     this.repository.save(parseNewInventoryAdjustment(input));
+
+  remove = async (id: number): Promise<void> => {
+    const removed = await this.repository.remove(id);
+
+    if (!removed) {
+      throw new NotFoundError(ADJUSTMENT_NOT_FOUND_MESSAGE);
+    }
+  };
 }

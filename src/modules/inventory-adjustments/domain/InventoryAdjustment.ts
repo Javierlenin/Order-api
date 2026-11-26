@@ -156,3 +156,36 @@ export const buildAdjustmentLines = (
     };
   });
 };
+
+export interface ReversedAdjustmentStock {
+  productId: number;
+  stockAfter: number;
+}
+
+export const reverseAdjustmentStock = (
+  adjustmentType: AdjustmentType,
+  products: AdjustmentProductStock[],
+  details: NewAdjustmentDetail[],
+): ReversedAdjustmentStock[] => {
+  const productsById = new Map(products.map((product) => [product.id, product]));
+
+  return details.map((detail) => {
+    const product = productsById.get(detail.productId);
+
+    if (!product) {
+      throw new DomainError('Uno o más productos no existen');
+    }
+
+    const stockAfter = adjustmentType === 'INGRESO' ? product.stock - detail.quantity : product.stock + detail.quantity;
+
+    if (stockAfter < 0) {
+      throw new DomainError('Eliminar el ajuste dejaría el stock en negativo');
+    }
+
+    if (stockAfter > MAX_STOCK) {
+      throw new DomainError('Eliminar el ajuste excede el stock permitido');
+    }
+
+    return { productId: product.id, stockAfter };
+  });
+};

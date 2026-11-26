@@ -28,5 +28,10 @@ export const createInventoryAdjustmentRouter = (service: InventoryAdjustmentServ
     res.status(HTTP_STATUS.CREATED).json(await service.create(req.body));
   });
 
+  router.delete('/:id', async (req, res) => {
+    await service.remove(parseId(req.params.id));
+    res.status(HTTP_STATUS.NO_CONTENT).send();
+  });
+
   return router;
 };
