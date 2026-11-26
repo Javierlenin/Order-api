@@ -41,6 +41,13 @@ describe('authentication', () => {
     expect(response.body.error).toBe('No autorizado');
   });
 
+  it('rejects categories when the request has no token', async () => {
+    const response = await request(app).get('/categories');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe('No autorizado');
+  });
+
   it('rejects the inventory movement history when the request has no token', async () => {
     const response = await request(app).get('/inventory-movements');
 
